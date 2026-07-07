@@ -2,6 +2,10 @@ package com.sistema.transporte.reserva.service.impl;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,15 +44,21 @@ public class ReservaServiceImpl implements ReservaService {
     private final PagosClient pagosClient;
     private final AuthenticatedUserProvider authenticatedUser;
 
+    /** Tope de pagina para no permitir descargar la tabla completa. */
+    private static final int MAX_PAGE_SIZE = 200;
+
     @Override
     @Transactional(readOnly = true)
-    public List<ReservaResponseDTO> listar() {
-        // Ejemplo de uso del SecurityContext en la capa de servicio:
-        // ADMIN lista todo; USER solo lo suyo.
-        List<Reserva> reservas = authenticatedUser.isAdmin()
-                ? reservaRepository.findAll()
-                : reservaRepository.findByUsuario(authenticatedUser.getUsername());
-        return reservas.stream().map(ReservaResponseDTO::fromEntity).toList();
+    public List<ReservaResponseDTO> listar(int page, int size) {
+        // Paginado + orden estable (mas recientes primero).
+        // ADMIN lista todo; USER solo lo suyo (RBAC a nivel de datos).
+        Pageable pageable = PageRequest.of(Math.max(page, 0),
+                Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
+                Sort.by(Sort.Direction.DESC, "id"));
+        Page<Reserva> reservas = authenticatedUser.isAdmin()
+                ? reservaRepository.findAll(pageable)
+                : reservaRepository.findByUsuario(authenticatedUser.getUsername(), pageable);
+        return reservas.map(ReservaResponseDTO::fromEntity).getContent();
     }
 
     @Override

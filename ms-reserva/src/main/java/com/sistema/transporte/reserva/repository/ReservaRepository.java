@@ -2,6 +2,8 @@ package com.sistema.transporte.reserva.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -16,4 +18,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
     /** Consulta derivada: reservas del usuario autenticado (para RBAC a nivel de datos). */
     List<Reserva> findByUsuario(String usuario);
+
+    /** Version paginada (evita descargar toda la tabla en listados grandes). */
+    Page<Reserva> findByUsuario(String usuario, Pageable pageable);
 }

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.sistema.transporte.reserva.dto.ReservaRequestDTO;
@@ -36,11 +37,16 @@ public class ReservaController {
 
     private final ReservaService reservaService;
 
-    /** Lectura: USER (solo sus reservas, filtrado en el servicio) o ADMIN (todas). */
+    /**
+     * Lectura paginada: USER (solo sus reservas) o ADMIN (todas).
+     * ?page=0&size=50 por defecto; size maximo 200.
+     */
     @GetMapping
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<List<ReservaResponseDTO>> listar() {
-        return ResponseEntity.ok(reservaService.listar());
+    public ResponseEntity<List<ReservaResponseDTO>> listar(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(reservaService.listar(page, size));
     }
 
     @GetMapping("/{id}")

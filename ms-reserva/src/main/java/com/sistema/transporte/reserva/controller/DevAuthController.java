@@ -74,9 +74,9 @@ public class DevAuthController {
     @PostMapping("/usuarios")
     public ResponseEntity<?> registrar(@RequestBody RegistroRequest req) {
         if (req.getUsuario() == null || req.getUsuario().isBlank()
-                || req.getPassword() == null || req.getPassword().length() < 4) {
+                || req.getPassword() == null || req.getPassword().length() < 8) {
             return ResponseEntity.badRequest().body(Map.of(
-                    "error", "usuario obligatorio y password de al menos 4 caracteres"));
+                    "error", "usuario obligatorio y password de al menos 8 caracteres"));
         }
         String username = req.getUsuario().trim().toLowerCase();
         if (usuarios.containsKey(username)) {
@@ -110,16 +110,41 @@ public class DevAuthController {
 
     // ==================== LOGIN ====================
 
-    /** Login con usuario y contrasena: devuelve el JWT con los roles del usuario. */
+    // ---- Rate limiting simple: max 5 intentos fallidos por usuario por minuto ----
+    private static final int MAX_INTENTOS = 5;
+    private static final long VENTANA_MS = 60_000;
+    private record Intentos(int fallos, long ventanaInicio) {}
+    private final Map<String, Intentos> intentosFallidos = new ConcurrentHashMap<>();
+
+    /**
+     * Login con usuario y contrasena: devuelve el JWT con los roles del usuario.
+     * Con rate limiting: tras 5 intentos fallidos en 1 minuto responde 429
+     * (mitiga fuerza bruta).
+     */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest req) {
-        UsuarioDev usuario = req.getUsuario() == null
-                ? null : usuarios.get(req.getUsuario().trim().toLowerCase());
+        String username = req.getUsuario() == null ? "" : req.getUsuario().trim().toLowerCase();
+
+        Intentos previos = intentosFallidos.get(username);
+        long ahoraMs = System.currentTimeMillis();
+        if (previos != null && ahoraMs - previos.ventanaInicio() < VENTANA_MS
+                && previos.fallos() >= MAX_INTENTOS) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("error", "Demasiados intentos fallidos. Espera 1 minuto."));
+        }
+
+        UsuarioDev usuario = usuarios.get(username);
         if (usuario == null || req.getPassword() == null
                 || !passwordEncoder.matches(req.getPassword(), usuario.passwordHash())) {
+            intentosFallidos.merge(username,
+                    new Intentos(1, ahoraMs),
+                    (viejo, nuevo) -> ahoraMs - viejo.ventanaInicio() < VENTANA_MS
+                            ? new Intentos(viejo.fallos() + 1, viejo.ventanaInicio())
+                            : nuevo);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Usuario o contrasena incorrectos"));
         }
+        intentosFallidos.remove(username); // exito: resetea el contador
         return ResponseEntity.ok(emitirToken(usuario.username(), usuario.roles()));
     }
 

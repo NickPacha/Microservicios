@@ -58,7 +58,7 @@
     <h2>1. Usuarios (registro)</h2>
     <div class="row2">
       <div><label>Usuario</label><input id="regUsuario" placeholder="ej. maria"></div>
-      <div><label>Contrase&ntilde;a (m&iacute;n. 4)</label><input id="regPassword" type="password" placeholder="****"></div>
+      <div><label>Contrase&ntilde;a (m&iacute;n. 8)</label><input id="regPassword" type="password" placeholder="********"></div>
     </div>
     <label>Rol</label>
     <select id="regRol">
@@ -162,7 +162,17 @@ async function api(method, path, body, tok) {
   let data = null;
   const text = await res.text();
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  // Sesion activa + 401 usando el token actual => el token expiro
+  if (res.status === 401 && sesion && tok === undefined) sesionExpirada();
   return { status: res.status, data };
+}
+
+let expiryTimer = null;
+
+function sesionExpirada() {
+  logout();
+  document.getElementById('sessionInfo').innerHTML =
+    '<span style="color:var(--warn)">Tu sesión expiró: vuelve a iniciar sesión.</span>';
 }
 
 // ==================== USUARIOS ====================
@@ -213,6 +223,9 @@ async function login() {
       document.getElementById('loginPassword').value);
     token = data.access_token;
     sesion = { usuario: data.usuario, roles: data.roles };
+    // Auto-logout con aviso cuando el token expira (expires_in en segundos)
+    clearTimeout(expiryTimer);
+    expiryTimer = setTimeout(sesionExpirada, (data.expires_in || 3600) * 1000);
     document.getElementById('sessionDot').classList.add('on');
     document.getElementById('sessionInfo').innerHTML =
       `Sesión activa: <b>${data.usuario}</b> ${rolBadge(data.roles)}`;
@@ -224,6 +237,7 @@ async function login() {
 
 function logout() {
   token = null; sesion = null;
+  clearTimeout(expiryTimer);
   document.getElementById('sessionDot').classList.remove('on');
   document.getElementById('sessionInfo').textContent = 'Sin sesión';
   listarUsuarios();

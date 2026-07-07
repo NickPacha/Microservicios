@@ -8,7 +8,7 @@ import com.sistema.transporte.reserva.dto.ReservaResponseDTO;
 /** Contrato de la logica de negocio de reservas. */
 public interface ReservaService {
 
-    List<ReservaResponseDTO> listar();
+    List<ReservaResponseDTO> listar(int page, int size);
 
     ReservaResponseDTO obtenerPorId(Long id);
 

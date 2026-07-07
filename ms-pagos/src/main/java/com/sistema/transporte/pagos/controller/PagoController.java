@@ -32,6 +32,9 @@ public class PagoController {
 
     private final AtomicLong secuencia = new AtomicLong(1);
     private final List<PagoProcesado> pagos = new CopyOnWriteArrayList<>();
+    /** Indice por reserva para IDEMPOTENCIA: una reserva se cobra UNA sola vez. */
+    private final java.util.concurrent.ConcurrentHashMap<Long, PagoProcesado> porReserva =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     /** Cuerpo que envia ms-reserva (mismo contrato que su PagoDTO). */
     @Data
@@ -55,20 +58,27 @@ public class PagoController {
         private LocalDateTime procesadoEn;
     }
 
-    /** Procesa el pago de una reserva. */
+    /**
+     * Procesa el pago de una reserva. IDEMPOTENTE: si la reserva ya fue
+     * pagada, devuelve el pago original en vez de cobrar dos veces
+     * (protege contra dobles clics y reintentos del circuit breaker).
+     */
     @PostMapping("/procesar")
     public ResponseEntity<PagoProcesado> procesar(@Valid @RequestBody PagoRequest request) {
-        PagoProcesado pago = PagoProcesado.builder()
-                .id(secuencia.getAndIncrement())
-                .reservaId(request.getReservaId())
-                .usuario(request.getUsuario())
-                .monto(request.getMonto())
-                .estado("PAGADO")
-                .procesadoEn(LocalDateTime.now())
-                .build();
-        pagos.add(pago);
-        log.info("Pago procesado: reserva={} usuario={} monto={}",
-                pago.getReservaId(), pago.getUsuario(), pago.getMonto());
+        PagoProcesado pago = porReserva.computeIfAbsent(request.getReservaId(), rid -> {
+            PagoProcesado nuevo = PagoProcesado.builder()
+                    .id(secuencia.getAndIncrement())
+                    .reservaId(rid)
+                    .usuario(request.getUsuario())
+                    .monto(request.getMonto())
+                    .estado("PAGADO")
+                    .procesadoEn(LocalDateTime.now())
+                    .build();
+            pagos.add(nuevo);
+            log.info("Pago procesado: reserva={} usuario={} monto={}",
+                    rid, nuevo.getUsuario(), nuevo.getMonto());
+            return nuevo;
+        });
         return ResponseEntity.ok(pago);
     }
 
