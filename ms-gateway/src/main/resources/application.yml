@@ -7,22 +7,24 @@ spring:
 
   cloud:
     gateway:
+      # URIs configurables por entorno: en local usan localhost;
+      # en Docker Compose se inyectan los nombres de contenedor.
       routes:
-        # ---------- ms-reserva (8083) ----------
+        # ---------- ms-reserva ----------
         - id: reservas
-          uri: http://localhost:8083
+          uri: ${RESERVA_URI:http://localhost:8083}
           predicates:
             - Path=/api/reservas/**
 
-        # Login/registro dev: viven en ms-reserva (perfil local)
+        # Login/registro dev: viven en ms-reserva
         - id: dev-auth
-          uri: http://localhost:8083
+          uri: ${RESERVA_URI:http://localhost:8083}
           predicates:
             - Path=/dev/**
 
-        # ---------- ms-pagos (8084) ----------
+        # ---------- ms-pagos ----------
         - id: pagos
-          uri: http://localhost:8084
+          uri: ${PAGOS_URI:http://localhost:8084}
           predicates:
             - Path=/api/pagos/**
 
@@ -30,7 +32,7 @@ spring:
 # En produccion: issuer-uri/jwk-set-uri de Keycloak, no clave simetrica.
 app:
   security:
-    dev-secret: "clave-secreta-de-desarrollo-para-ms-reserva-256bits!!"
+    dev-secret: ${DEV_SECRET:clave-secreta-de-desarrollo-para-ms-reserva-256bits!!}
 
 management:
   endpoints:

@@ -1,0 +1,66 @@
+# =====================================================================
+# Sistema Transporte - stack completo con un solo comando:
+#     docker compose up --build
+#
+# Servicios:
+#   - postgres    : BD real de ms-reserva (Flyway crea el esquema)
+#   - ms-pagos    : puerto 8084
+#   - ms-reserva  : puerto 8083 (perfil "docker": PostgreSQL + Flyway)
+#   - ms-gateway  : puerto 8080 (valida JWT en el perimetro)
+#
+# Portal:  http://localhost:8083/    Gateway: http://localhost:8080/api/...
+# A diferencia del modo local, las reservas SOBREVIVEN a los reinicios
+# (volumen pgdata).
+# =====================================================================
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: st-postgres
+    environment:
+      POSTGRES_DB: reserva_db
+      POSTGRES_USER: reserva_user
+      POSTGRES_PASSWORD: reserva_pass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reserva_user -d reserva_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ms-pagos:
+    build: ./ms-pagos
+    container_name: st-ms-pagos
+    ports:
+      - "8084:8084"
+
+  ms-reserva:
+    build: ./ms-reserva
+    container_name: st-ms-reserva
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      PAGOS_URI: http://ms-pagos:8084
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ms-pagos:
+        condition: service_started
+
+  ms-gateway:
+    build: ./ms-gateway
+    container_name: st-ms-gateway
+    environment:
+      RESERVA_URI: http://ms-reserva:8083
+      PAGOS_URI: http://ms-pagos:8084
+    ports:
+      - "8080:8080"
+    depends_on:
+      - ms-reserva
+      - ms-pagos
+
+volumes:
+  pgdata:

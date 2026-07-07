@@ -27,6 +27,16 @@ Doble clic en **`arrancar.bat`** (o desde terminal). Abre dos ventanas, una por 
 
 Usuarios semilla: `fernando/fernando123` [USER] · `admin/admin123` [ADMIN]
 
+## Arrancar con Docker (recomendado)
+
+Con Docker Desktop instalado, un solo comando levanta todo el stack (los 3 microservicios + PostgreSQL real con migraciones Flyway):
+
+```bash
+docker compose up --build
+```
+
+La primera vez tarda varios minutos (compila las imágenes). Después: mismas URLs de siempre, con una diferencia importante — **las reservas sobreviven a los reinicios** (PostgreSQL con volumen, no H2 en memoria). Para detener: `docker compose down` (o `docker compose down -v` para borrar también los datos).
+
 ## Compilar todo de una vez
 
 ```bash

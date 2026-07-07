@@ -1,0 +1,54 @@
+# =====================================================================
+# Perfil DOCKER: stack completo con Docker Compose.
+# Diferencias vs "local":
+#   - PostgreSQL REAL (contenedor) en lugar de H2 en memoria
+#   - Flyway ACTIVO: el esquema lo crean las migraciones versionadas
+#     (ddl-auto: validate, como en produccion)
+#   - Los servicios se resuelven por nombre de contenedor (red de compose)
+# Mantiene la autenticacion dev (/dev/login, HS256): Keycloak es el
+# siguiente paso hacia produccion.
+# =====================================================================
+spring:
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      client:
+        simple:
+          instances:
+            ms-pagos:
+              - uri: ${PAGOS_URI:http://ms-pagos:8084}
+
+  # ---------- PostgreSQL del contenedor ----------
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:reserva_db}
+    username: ${DB_USER:reserva_user}
+    password: ${DB_PASSWORD:reserva_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # el esquema lo gestiona Flyway, como en produccion
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+app:
+  security:
+    dev-secret: ${DEV_SECRET:clave-secreta-de-desarrollo-para-ms-reserva-256bits!!}
+
+logging:
+  level:
+    com.sistema.transporte.reserva: INFO
