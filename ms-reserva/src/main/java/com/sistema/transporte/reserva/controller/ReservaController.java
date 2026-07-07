@@ -57,6 +57,17 @@ public class ReservaController {
         return ResponseEntity.created(URI.create("/api/reservas/" + creada.getId())).body(creada);
     }
 
+    /**
+     * Pago de la reserva por su PROPIETARIO (o un ADMIN): reintenta el cobro
+     * de una reserva PENDIENTE. El control de propiedad (que un USER solo
+     * pague SU reserva) se aplica en la capa de servicio.
+     */
+    @PutMapping("/{id}/pagar")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    public ResponseEntity<ReservaResponseDTO> pagar(@PathVariable Long id) {
+        return ResponseEntity.ok(reservaService.pagar(id));
+    }
+
     /** Confirmacion manual: operacion administrativa. */
     @PutMapping("/{id}/confirmar")
     @PreAuthorize("hasRole('ADMIN')")

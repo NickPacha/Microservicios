@@ -14,6 +14,8 @@ public interface ReservaService {
 
     ReservaResponseDTO crear(ReservaRequestDTO request);
 
+    ReservaResponseDTO pagar(Long id);
+
     ReservaResponseDTO confirmar(Long id);
 
     void eliminar(Long id);

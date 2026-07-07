@@ -112,6 +112,7 @@
     <label>ID de reserva</label>
     <input id="opId" type="number" placeholder="ej. 1">
     <button class="secondary" onclick="obtenerPorId()">Consultar</button>
+    <button onclick="pagarReserva()">Pagar (due&ntilde;o)</button>
     <button class="ok" onclick="confirmarReserva()">Confirmar (ADMIN)</button>
     <button class="danger" onclick="eliminarReserva()">Eliminar (ADMIN)</button>
     <pre id="opOut" style="display:none"></pre>
@@ -245,6 +246,16 @@ async function obtenerPorId() {
   show('opOut', { http: r.status, respuesta: r.data });
 }
 
+async function pagarReserva(id) {
+  const rid = id ?? document.getElementById('opId').value;
+  const r = await api('PUT', `/api/reservas/${rid}/pagar`);
+  const mensaje = r.status === 200 && r.data && r.data.estado === 'PENDIENTE'
+    ? { http: r.status, aviso: 'ms-pagos no está disponible: la reserva sigue PENDIENTE. Vuelve a intentarlo cuando esté arriba.', respuesta: r.data }
+    : { http: r.status, respuesta: r.data };
+  show('opOut', mensaje);
+  listarReservas();
+}
+
 async function confirmarReserva() {
   const r = await api('PUT', `/api/reservas/${document.getElementById('opId').value}/confirmar`);
   show('opOut', { http: r.status, respuesta: r.data });
@@ -269,10 +280,11 @@ async function listarReservas() {
   if (r.status !== 200) { wrap.innerHTML = `<pre>HTTP ${r.status}: ${JSON.stringify(r.data)}</pre>`; return; }
   if (!r.data.length) { wrap.innerHTML = '<p class="sub" style="margin-top:10px">No hay reservas.</p>'; return; }
   wrap.innerHTML = `<table><thead><tr>
-      <th>ID</th><th>Usuario</th><th>Origen</th><th>Destino</th><th>Fecha</th><th>Asiento</th><th>Precio</th><th>Estado</th>
+      <th>ID</th><th>Usuario</th><th>Origen</th><th>Destino</th><th>Fecha</th><th>Asiento</th><th>Precio</th><th>Estado</th><th></th>
     </tr></thead><tbody>` +
     r.data.map(x => `<tr><td>${x.id}</td><td>${x.usuario}</td><td>${x.origen}</td><td>${x.destino}</td>
-      <td>${(x.fechaViaje || '').replace('T', ' ').slice(0, 16)}</td><td>${x.asiento}</td><td>${x.precio}</td><td>${badge(x.estado)}</td></tr>`).join('') +
+      <td>${(x.fechaViaje || '').replace('T', ' ').slice(0, 16)}</td><td>${x.asiento}</td><td>${x.precio}</td><td>${badge(x.estado)}</td>
+      <td>${x.estado === 'PENDIENTE' ? `<button class="mini" onclick="pagarReserva(${x.id})">Pagar</button>` : ''}</td></tr>`).join('') +
     '</tbody></table>';
 }
 

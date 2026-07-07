@@ -59,6 +59,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/reservas/**").hasAnyRole("USER", "ADMIN")
                 // Creacion: usuarios autenticados (un pasajero crea su propia reserva)
                 .requestMatchers(HttpMethod.POST, "/api/reservas/**").hasAnyRole("USER", "ADMIN")
+                // Pago: el propietario (USER) paga SU reserva; la propiedad
+                // se verifica en la capa de servicio. Debe ir ANTES de la
+                // regla generica de PUT (la primera coincidencia gana).
+                .requestMatchers(HttpMethod.PUT, "/api/reservas/*/pagar").hasAnyRole("USER", "ADMIN")
                 // Modificacion y borrado: solo ADMIN
                 .requestMatchers(HttpMethod.PUT, "/api/reservas/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/reservas/**").hasRole("ADMIN")

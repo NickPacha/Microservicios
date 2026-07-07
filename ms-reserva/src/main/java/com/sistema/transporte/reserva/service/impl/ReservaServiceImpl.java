@@ -105,6 +105,43 @@ public class ReservaServiceImpl implements ReservaService {
         return ReservaResponseDTO.fromEntity(reserva);
     }
 
+    /**
+     * Pago iniciado por el PROPIETARIO de la reserva (o un ADMIN):
+     * reintenta el cobro de una reserva PENDIENTE contra ms-pagos.
+     * Si el pago se procesa, pasa a CONFIRMADA; si ms-pagos sigue caido,
+     * el fallback la deja PENDIENTE (sin romper la peticion).
+     */
+    @Override
+    @Transactional
+    @CircuitBreaker(name = "pagosCB", fallbackMethod = "pagarSinPago")
+    public ReservaResponseDTO pagar(Long id) {
+        Reserva reserva = buscarConControlDeAcceso(id);
+        if (reserva.getEstado() == EstadoReserva.CONFIRMADA) {
+            return ReservaResponseDTO.fromEntity(reserva); // ya pagada
+        }
+        pagosClient.procesarPago(PagoDTO.builder()
+                .reservaId(reserva.getId())
+                .usuario(reserva.getUsuario())
+                .monto(reserva.getPrecio())
+                .build());
+        reserva.setEstado(EstadoReserva.CONFIRMADA);
+        log.info("Usuario={} pago la reserva id={}", authenticatedUser.getUsername(), id);
+        return ReservaResponseDTO.fromEntity(reserva);
+    }
+
+    /**
+     * Fallback de pagar(): NO debe tragarse los errores de negocio/seguridad
+     * (404, 403); solo aplica cuando ms-pagos esta caido.
+     */
+    @Transactional
+    public ReservaResponseDTO pagarSinPago(Long id, Throwable causa) {
+        if (causa instanceof AccessDeniedException ade) throw ade;
+        if (causa instanceof ReservaNoEncontradaException rne) throw rne;
+        log.warn("ms-pagos no disponible ({}). La reserva id={} sigue PENDIENTE.",
+                causa.getMessage(), id);
+        return ReservaResponseDTO.fromEntity(buscarConControlDeAcceso(id));
+    }
+
     @Override
     @Transactional
     public ReservaResponseDTO confirmar(Long id) {

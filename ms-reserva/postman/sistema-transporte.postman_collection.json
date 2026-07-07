@@ -198,6 +198,15 @@
           }
         },
         {
+          "name": "Pagar reserva (dueño USER)",
+          "request": {
+            "method": "PUT",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_user}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/api/reservas/{{reserva_id}}/pagar", "host": ["{{base_url}}"], "path": ["api", "reservas", "{{reserva_id}}", "pagar"] },
+            "description": "El propietario paga su reserva PENDIENTE. Con ms-pagos arriba pasa a CONFIRMADA; caído, sigue PENDIENTE (Circuit Breaker). Un USER que no es dueño recibe 403."
+          }
+        },
+        {
           "name": "Crear reserva inválida (debe dar 400)",
           "request": {
             "method": "POST",
