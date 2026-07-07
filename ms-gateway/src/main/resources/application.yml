@@ -1,0 +1,39 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ms-gateway
+
+  cloud:
+    gateway:
+      routes:
+        # ---------- ms-reserva (8083) ----------
+        - id: reservas
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/reservas/**
+
+        # Login/registro dev: viven en ms-reserva (perfil local)
+        - id: dev-auth
+          uri: http://localhost:8083
+          predicates:
+            - Path=/dev/**
+
+        # ---------- ms-pagos (8084) ----------
+        - id: pagos
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/pagos/**
+
+# Clave DEV compartida para validar el JWT en el perimetro.
+# En produccion: issuer-uri/jwk-set-uri de Keycloak, no clave simetrica.
+app:
+  security:
+    dev-secret: "clave-secreta-de-desarrollo-para-ms-reserva-256bits!!"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, gateway

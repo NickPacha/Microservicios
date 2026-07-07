@@ -18,6 +18,7 @@
     <name>sistema-transporte (monorepo)</name>
 
     <modules>
+        <module>ms-gateway</module>
         <module>ms-reserva</module>
         <module>ms-pagos</module>
     </modules>

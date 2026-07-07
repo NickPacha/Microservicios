@@ -13,11 +13,15 @@ start "ms-pagos [8084]" cmd /k "cd /d %~dp0ms-pagos && mvnw.cmd spring-boot:run"
 echo Iniciando ms-reserva (8083, perfil local)...
 start "ms-reserva [8083]" cmd /k "cd /d %~dp0ms-reserva && set SPRING_PROFILES_ACTIVE=local&& mvnw.cmd spring-boot:run"
 
+echo Iniciando ms-gateway (8080)...
+start "ms-gateway [8080]" cmd /k "cd /d %~dp0ms-gateway && mvnw.cmd spring-boot:run"
+
 echo.
-echo Cuando ambas ventanas muestren "Tomcat started", abre:
+echo Cuando las ventanas muestren "Tomcat/Netty started", abre:
 echo   http://localhost:8083/          (portal de reservas)
 echo   http://localhost:8083/swagger-ui.html
 echo   http://localhost:8084/api/pagos (pagos procesados)
+echo   http://localhost:8080/api/...   (todo via API Gateway)
 echo.
-echo Para detener: cierra las dos ventanas (o Ctrl+C en cada una).
+echo Para detener: cierra las ventanas (o Ctrl+C en cada una).
 pause

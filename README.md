@@ -6,9 +6,10 @@ Un solo repositorio, microservicios independientes: cada uno tiene su propio `po
 
 ```
 Microservicios/
-├── pom.xml          → agregador (compila los dos módulos)
-├── arrancar.bat     → inicia ambos microservicios (doble clic)
-├── detener.bat      → detiene lo que corra en 8083/8084
+├── pom.xml          → agregador (compila los tres módulos)
+├── arrancar.bat     → inicia los tres microservicios (doble clic)
+├── detener.bat      → detiene lo que corra en 8080/8083/8084
+├── ms-gateway/      → API Gateway (8080) - valida JWT en el perímetro y enruta
 ├── ms-reserva/      → reservas (8083) - JWT, RBAC, H2/PostgreSQL, circuit breaker
 └── ms-pagos/        → pagos (8084) - procesa los pagos que envía ms-reserva
 ```
@@ -22,6 +23,7 @@ Doble clic en **`arrancar.bat`** (o desde terminal). Abre dos ventanas, una por 
 | http://localhost:8083/ | Portal: registro de usuarios, login, reservas y suite de pruebas |
 | http://localhost:8083/swagger-ui.html | Swagger UI de ms-reserva |
 | http://localhost:8084/api/pagos | Pagos procesados por ms-pagos |
+| http://localhost:8080/api/reservas | Lo mismo pero entrando por el API Gateway (valida el JWT en el perímetro) |
 
 Usuarios semilla: `fernando/fernando123` [USER] · `admin/admin123` [ADMIN]
 
