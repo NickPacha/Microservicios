@@ -1,5 +1,7 @@
 # Sistema Transporte — Monorepo de microservicios
 
+![CI](https://github.com/NickPacha/Microservicios/actions/workflows/ci.yml/badge.svg)
+
 Un solo repositorio, microservicios independientes: cada uno tiene su propio `pom.xml`, puerto, base de datos y JVM. El pom raíz solo agrega los módulos para compilar todo junto.
 
 ## Estructura
