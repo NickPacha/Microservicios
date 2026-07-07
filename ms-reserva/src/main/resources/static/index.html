@@ -129,7 +129,7 @@
 <!-- ================= SUITE DE PRUEBAS ================= -->
 <div class="panel">
   <h2>6. Suite de pruebas autom&aacute;ticas</h2>
-  <p class="sub">16 pruebas end-to-end contra la API real: registro, login, JWT, validaci&oacute;n, CRUD y RBAC.</p>
+  <p class="sub">17 pruebas end-to-end contra la API real: registro, login, JWT, validaci&oacute;n, CRUD y RBAC.</p>
   <button onclick="ejecutarPruebas()">&#9654; Ejecutar todas las pruebas</button>
   <div class="summary" id="testSummary"></div>
   <table id="testTable" style="display:none">
@@ -184,14 +184,18 @@ async function listarUsuarios() {
   const r = await api('GET', '/dev/usuarios', null, null);
   const wrap = document.getElementById('usuariosWrap');
   if (r.status !== 200) { wrap.innerHTML = `<pre>HTTP ${r.status}</pre>`; return; }
+  const esAdmin = sesion && sesion.roles && sesion.roles.includes('ADMIN');
   wrap.innerHTML = '<table><thead><tr><th>Usuario</th><th>Roles</th><th></th></tr></thead><tbody>' +
     r.data.map(u => `<tr><td>${u.usuario}</td><td>${rolBadge(u.roles)}</td>
-      <td><button class="mini danger" onclick="eliminarUsuario('${u.usuario}')">eliminar</button></td></tr>`).join('') +
+      <td>${esAdmin ? `<button class="mini danger" onclick="eliminarUsuario('${u.usuario}')">eliminar</button>` : ''}</td></tr>`).join('') +
     '</tbody></table>';
 }
 
 async function eliminarUsuario(username) {
-  await api('DELETE', '/dev/usuarios/' + encodeURIComponent(username), null, null);
+  const r = await api('DELETE', '/dev/usuarios/' + encodeURIComponent(username));
+  if (r.status !== 204) {
+    show('regOut', { http: r.status, aviso: 'Solo un ADMIN con sesión activa puede eliminar usuarios.', respuesta: r.data });
+  }
   listarUsuarios();
 }
 
@@ -214,6 +218,7 @@ async function login() {
       `Sesión activa: <b>${data.usuario}</b> ${rolBadge(data.roles)}`;
     show('loginOut', { usuario: data.usuario, roles: data.roles, access_token: token.slice(0, 60) + '...' });
     listarReservas();
+    listarUsuarios();
   } catch (e) { show('loginOut', 'ERROR: ' + e.message); }
 }
 
@@ -221,6 +226,7 @@ function logout() {
   token = null; sesion = null;
   document.getElementById('sessionDot').classList.remove('on');
   document.getElementById('sessionInfo').textContent = 'Sin sesión';
+  listarUsuarios();
 }
 
 // ==================== RESERVAS ====================
@@ -368,9 +374,13 @@ async function ejecutarPruebas() {
     r = await api('DELETE', '/api/reservas/' + id, null, tAdmin);
     fila('ADMIN elimina la reserva', 'HTTP 204', 'HTTP ' + r.status, r.status === 204);
 
-    // Limpieza de usuarios de prueba
-    await api('DELETE', '/dev/usuarios/' + uUser, null, null);
-    await api('DELETE', '/dev/usuarios/' + uAdmin, null, null);
+    // RBAC de usuarios dev: borrar requiere ADMIN
+    r = await api('DELETE', '/dev/usuarios/' + uUser, null, null);
+    fila('Eliminar usuario sin token es rechazado', 'HTTP 401', 'HTTP ' + r.status, r.status === 401);
+
+    // Limpieza de usuarios de prueba (con token ADMIN)
+    await api('DELETE', '/dev/usuarios/' + uUser, null, tAdmin);
+    await api('DELETE', '/dev/usuarios/' + uAdmin, null, tAdmin);
   } catch (e) {
     fila('Ejecución de la suite', 'sin excepciones', e.message, false);
   }

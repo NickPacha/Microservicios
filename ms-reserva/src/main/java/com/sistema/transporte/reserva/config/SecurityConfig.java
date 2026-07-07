@@ -52,8 +52,10 @@ public class SecurityConfig {
                         "/css/**", "/js/**").permitAll()
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**",
                         "/v3/api-docs/**").permitAll()
-                // Autenticacion DEV (registro, login, usuarios): el controller
+                // Autenticacion DEV: eliminar usuarios es operacion de ADMIN;
+                // registro, login y listado quedan abiertos. El controller
                 // solo existe en el perfil "local"; en produccion responde 404.
+                .requestMatchers(HttpMethod.DELETE, "/dev/usuarios/**").hasRole("ADMIN")
                 .requestMatchers("/dev/**").permitAll()
                 // Lectura: cualquier usuario autenticado con rol USER o ADMIN
                 .requestMatchers(HttpMethod.GET, "/api/reservas/**").hasAnyRole("USER", "ADMIN")

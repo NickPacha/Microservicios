@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -98,8 +99,9 @@ public class DevAuthController {
                 .toList();
     }
 
-    /** Eliminar un usuario de prueba. */
+    /** Eliminar un usuario de prueba: SOLO ADMIN (doble capa con SecurityConfig). */
     @DeleteMapping("/usuarios/{username}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> eliminar(@PathVariable String username) {
         return usuarios.remove(username.toLowerCase()) != null
                 ? ResponseEntity.noContent().build()
