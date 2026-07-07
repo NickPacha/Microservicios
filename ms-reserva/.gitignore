@@ -1,0 +1,26 @@
+# Compilados
+target/
+*.class
+*.jar
+!.mvn/wrapper/*.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Logs y temporales
+*.log
+logs/
+
+# SO
+.DS_Store
+Thumbs.db
+
+# Secretos (nunca subir credenciales reales)
+*.p12
+*.jks
+.env

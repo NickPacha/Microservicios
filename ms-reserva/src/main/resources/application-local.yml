@@ -1,0 +1,56 @@
+# =====================================================================
+# Perfil LOCAL: ejecucion 100% autonoma para pruebas en el navegador.
+#   mvn spring-boot:run -Dspring-boot.run.profiles=local
+#
+# - H2 en memoria (sin PostgreSQL)
+# - Sin Eureka, sin Config Server, sin Keycloak
+# - JWT firmado con clave simetrica HS256 (SOLO desarrollo)
+# - Consola de pruebas:  http://localhost:8083/
+# - Swagger UI:          http://localhost:8083/swagger-ui.html
+# =====================================================================
+spring:
+  cloud:
+    config:
+      enabled: false    # sin Config Server en local (el import es "optional:")
+    # Sin Eureka: Feign resuelve "ms-pagos" con este registro estatico.
+    # Si ms-pagos (puerto 8084) no esta corriendo, actua el Circuit Breaker
+    # y la reserva queda PENDIENTE.
+    discovery:
+      client:
+        simple:
+          instances:
+            ms-pagos:
+              - uri: http://localhost:8084
+
+  # ---------- H2 en memoria ----------
+  datasource:
+    url: jdbc:h2:mem:reserva_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop   # solo en local; en prod el esquema lo gestiona Flyway
+    open-in-view: false
+
+  flyway:
+    enabled: false            # la migracion V1 es especifica de PostgreSQL
+
+# Eureka apagado en local
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+# ---------- Seguridad DEV: JWT HS256 con clave simetrica ----------
+# LocalJwtConfig crea el JwtDecoder/JwtEncoder con esta clave, por lo que
+# NO se contacta a Keycloak. NUNCA usar este mecanismo en produccion.
+app:
+  security:
+    dev-secret: "clave-secreta-de-desarrollo-para-ms-reserva-256bits!!"
+
+logging:
+  level:
+    com.sistema.transporte.reserva: DEBUG

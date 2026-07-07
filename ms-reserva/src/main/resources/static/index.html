@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ms-reserva | Portal de Reservas</title>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+    --ok: #34d399; --err: #f87171; --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 24px; }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  h2 { font-size: 1.05rem; margin-bottom: 12px; color: var(--accent); }
+  .sub { color: var(--muted); margin-bottom: 20px; font-size: .9rem; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  label { display: block; font-size: .8rem; color: var(--muted); margin: 8px 0 3px; }
+  input, select { width: 100%; padding: 8px 10px; background: #0b1220; color: var(--text); border: 1px solid var(--border); border-radius: 6px; font-size: .9rem; }
+  button { padding: 9px 16px; border: none; border-radius: 6px; background: var(--accent); color: #082f49; font-weight: 600; cursor: pointer; margin: 10px 6px 0 0; font-size: .9rem; }
+  button:hover { filter: brightness(1.15); }
+  button.secondary { background: #475569; color: var(--text); }
+  button.danger { background: var(--err); color: #450a0a; }
+  button.ok { background: var(--ok); color: #064e3b; }
+  button.mini { padding: 3px 10px; margin: 0; font-size: .75rem; }
+  pre { background: #0b1220; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: .78rem; overflow: auto; max-height: 220px; margin-top: 10px; white-space: pre-wrap; word-break: break-all; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: .82rem; }
+  th, td { padding: 7px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+  th { color: var(--muted); font-weight: 600; }
+  .badge { padding: 2px 8px; border-radius: 10px; font-size: .72rem; font-weight: 700; }
+  .b-conf { background: #064e3b; color: var(--ok); }
+  .b-pend { background: #451a03; color: var(--warn); }
+  .b-canc { background: #450a0a; color: var(--err); }
+  .b-admin { background: #3b0764; color: #d8b4fe; }
+  .b-user { background: #0c4a6e; color: var(--accent); }
+  .session { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; font-size: .85rem; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--err); display: inline-block; }
+  .dot.on { background: var(--ok); }
+  .t-pass { color: var(--ok); font-weight: 700; }
+  .t-fail { color: var(--err); font-weight: 700; }
+  .summary { margin-top: 10px; font-size: .95rem; font-weight: 600; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { font-size: .78rem; color: var(--muted); margin-top: 8px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>ms-reserva &mdash; Portal de Reservas</h1>
+<p class="sub">Usuarios y reservas en una sola web (perfil <b>local</b>, puerto 8083). Tambi&eacute;n: <a href="/swagger-ui.html">Swagger UI</a></p>
+
+<div class="grid">
+  <!-- ================= REGISTRO DE USUARIOS ================= -->
+  <div class="panel">
+    <h2>1. Usuarios (registro)</h2>
+    <div class="row2">
+      <div><label>Usuario</label><input id="regUsuario" placeholder="ej. maria"></div>
+      <div><label>Contrase&ntilde;a (m&iacute;n. 4)</label><input id="regPassword" type="password" placeholder="****"></div>
+    </div>
+    <label>Rol</label>
+    <select id="regRol">
+      <option value="USER">USER (pasajero)</option>
+      <option value="ADMIN">ADMIN (administrador)</option>
+    </select>
+    <button onclick="registrarUsuario()">Registrar usuario</button>
+    <button class="secondary" onclick="listarUsuarios()">Refrescar lista</button>
+    <div id="usuariosWrap"></div>
+    <p class="hint">Usuarios semilla: <b>fernando / fernando123</b> [USER] &middot; <b>admin / admin123</b> [ADMIN]</p>
+    <pre id="regOut" style="display:none"></pre>
+  </div>
+
+  <!-- ================= LOGIN ================= -->
+  <div class="panel">
+    <h2>2. Iniciar sesi&oacute;n</h2>
+    <div class="row2">
+      <div><label>Usuario</label><input id="loginUsuario" value="fernando"></div>
+      <div><label>Contrase&ntilde;a</label><input id="loginPassword" type="password" value="fernando123"></div>
+    </div>
+    <button onclick="login()">Iniciar sesi&oacute;n</button>
+    <button class="secondary" onclick="logout()">Cerrar sesi&oacute;n</button>
+    <div class="session">
+      <span class="dot" id="sessionDot"></span>
+      <span id="sessionInfo">Sin sesi&oacute;n</span>
+    </div>
+    <pre id="loginOut" style="display:none"></pre>
+  </div>
+</div>
+
+<div class="grid">
+  <!-- ================= CREAR RESERVA ================= -->
+  <div class="panel">
+    <h2>3. Crear reserva</h2>
+    <div class="row2">
+      <div><label>Origen</label><input id="fOrigen" value="Lima"></div>
+      <div><label>Destino</label><input id="fDestino" value="Arequipa"></div>
+    </div>
+    <div class="row2">
+      <div><label>Fecha de viaje</label><input id="fFecha" type="datetime-local"></div>
+      <div><label>Asiento</label><input id="fAsiento" value="12A"></div>
+    </div>
+    <label>Precio</label><input id="fPrecio" type="number" step="0.01" value="85.50">
+    <button onclick="crearReserva()">Crear reserva</button>
+    <pre id="crearOut" style="display:none"></pre>
+  </div>
+
+  <!-- ================= OPERACIONES ================= -->
+  <div class="panel">
+    <h2>4. Operaciones por ID</h2>
+    <label>ID de reserva</label>
+    <input id="opId" type="number" placeholder="ej. 1">
+    <button class="secondary" onclick="obtenerPorId()">Consultar</button>
+    <button class="ok" onclick="confirmarReserva()">Confirmar (ADMIN)</button>
+    <button class="danger" onclick="eliminarReserva()">Eliminar (ADMIN)</button>
+    <pre id="opOut" style="display:none"></pre>
+  </div>
+</div>
+
+<!-- ================= LISTADO ================= -->
+<div class="panel">
+  <h2>5. Mis reservas <span style="color:var(--muted);font-size:.8rem">(ADMIN ve todas; USER solo las suyas)</span></h2>
+  <button class="secondary" onclick="listarReservas()">Refrescar listado</button>
+  <div id="listaWrap"><p class="sub" style="margin-top:10px">Inicia sesi&oacute;n para ver tus reservas.</p></div>
+</div>
+
+<!-- ================= SUITE DE PRUEBAS ================= -->
+<div class="panel">
+  <h2>6. Suite de pruebas autom&aacute;ticas</h2>
+  <p class="sub">16 pruebas end-to-end contra la API real: registro, login, JWT, validaci&oacute;n, CRUD y RBAC.</p>
+  <button onclick="ejecutarPruebas()">&#9654; Ejecutar todas las pruebas</button>
+  <div class="summary" id="testSummary"></div>
+  <table id="testTable" style="display:none">
+    <thead><tr><th>#</th><th>Prueba</th><th>Esperado</th><th>Obtenido</th><th>Resultado</th></tr></thead>
+    <tbody id="testBody"></tbody>
+  </table>
+</div>
+
+<script>
+let token = null, sesion = null;
+
+// Fecha por defecto: mañana
+(function () {
+  const d = new Date(Date.now() + 24 * 3600 * 1000);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  document.getElementById('fFecha').value = d.toISOString().slice(0, 16);
+})();
+
+function show(id, data) {
+  const el = document.getElementById(id);
+  el.style.display = 'block';
+  el.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+}
+
+async function api(method, path, body, tok) {
+  const headers = { 'Content-Type': 'application/json' };
+  const t = tok !== undefined ? tok : token;
+  if (t) headers['Authorization'] = 'Bearer ' + t;
+  const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  let data = null;
+  const text = await res.text();
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  return { status: res.status, data };
+}
+
+// ==================== USUARIOS ====================
+async function registrarUsuario() {
+  const r = await api('POST', '/dev/usuarios', {
+    usuario: document.getElementById('regUsuario').value,
+    password: document.getElementById('regPassword').value,
+    roles: [document.getElementById('regRol').value]
+  }, null);
+  show('regOut', { http: r.status, respuesta: r.data });
+  if (r.status === 201) listarUsuarios();
+}
+
+function rolBadge(roles) {
+  return roles.map(x => `<span class="badge ${x === 'ADMIN' ? 'b-admin' : 'b-user'}">${x}</span>`).join(' ');
+}
+
+async function listarUsuarios() {
+  const r = await api('GET', '/dev/usuarios', null, null);
+  const wrap = document.getElementById('usuariosWrap');
+  if (r.status !== 200) { wrap.innerHTML = `<pre>HTTP ${r.status}</pre>`; return; }
+  wrap.innerHTML = '<table><thead><tr><th>Usuario</th><th>Roles</th><th></th></tr></thead><tbody>' +
+    r.data.map(u => `<tr><td>${u.usuario}</td><td>${rolBadge(u.roles)}</td>
+      <td><button class="mini danger" onclick="eliminarUsuario('${u.usuario}')">eliminar</button></td></tr>`).join('') +
+    '</tbody></table>';
+}
+
+async function eliminarUsuario(username) {
+  await api('DELETE', '/dev/usuarios/' + encodeURIComponent(username), null, null);
+  listarUsuarios();
+}
+
+// ==================== SESION ====================
+async function loginConCredenciales(usuario, password) {
+  const r = await api('POST', '/dev/login', { usuario, password }, null);
+  if (r.status !== 200) throw new Error('HTTP ' + r.status + ': ' + JSON.stringify(r.data));
+  return r.data;
+}
+
+async function login() {
+  try {
+    const data = await loginConCredenciales(
+      document.getElementById('loginUsuario').value,
+      document.getElementById('loginPassword').value);
+    token = data.access_token;
+    sesion = { usuario: data.usuario, roles: data.roles };
+    document.getElementById('sessionDot').classList.add('on');
+    document.getElementById('sessionInfo').innerHTML =
+      `Sesión activa: <b>${data.usuario}</b> ${rolBadge(data.roles)}`;
+    show('loginOut', { usuario: data.usuario, roles: data.roles, access_token: token.slice(0, 60) + '...' });
+    listarReservas();
+  } catch (e) { show('loginOut', 'ERROR: ' + e.message); }
+}
+
+function logout() {
+  token = null; sesion = null;
+  document.getElementById('sessionDot').classList.remove('on');
+  document.getElementById('sessionInfo').textContent = 'Sin sesión';
+}
+
+// ==================== RESERVAS ====================
+function reservaBody() {
+  return {
+    origen: document.getElementById('fOrigen').value,
+    destino: document.getElementById('fDestino').value,
+    fechaViaje: document.getElementById('fFecha').value + ':00',
+    asiento: document.getElementById('fAsiento').value,
+    precio: parseFloat(document.getElementById('fPrecio').value)
+  };
+}
+
+async function crearReserva() {
+  if (!token) { show('crearOut', 'Inicia sesión primero.'); return; }
+  const r = await api('POST', '/api/reservas', reservaBody());
+  show('crearOut', { http: r.status, respuesta: r.data });
+  if (r.status === 201) listarReservas();
+}
+
+async function obtenerPorId() {
+  const r = await api('GET', '/api/reservas/' + document.getElementById('opId').value);
+  show('opOut', { http: r.status, respuesta: r.data });
+}
+
+async function confirmarReserva() {
+  const r = await api('PUT', `/api/reservas/${document.getElementById('opId').value}/confirmar`);
+  show('opOut', { http: r.status, respuesta: r.data });
+  listarReservas();
+}
+
+async function eliminarReserva() {
+  const r = await api('DELETE', '/api/reservas/' + document.getElementById('opId').value);
+  show('opOut', { http: r.status, respuesta: r.data ?? '(sin contenido: eliminada)' });
+  listarReservas();
+}
+
+function badge(estado) {
+  const cls = estado === 'CONFIRMADA' ? 'b-conf' : estado === 'PENDIENTE' ? 'b-pend' : 'b-canc';
+  return `<span class="badge ${cls}">${estado}</span>`;
+}
+
+async function listarReservas() {
+  const r = await api('GET', '/api/reservas');
+  const wrap = document.getElementById('listaWrap');
+  if (r.status === 401) { wrap.innerHTML = '<p class="sub" style="margin-top:10px">Inicia sesión para ver tus reservas.</p>'; return; }
+  if (r.status !== 200) { wrap.innerHTML = `<pre>HTTP ${r.status}: ${JSON.stringify(r.data)}</pre>`; return; }
+  if (!r.data.length) { wrap.innerHTML = '<p class="sub" style="margin-top:10px">No hay reservas.</p>'; return; }
+  wrap.innerHTML = `<table><thead><tr>
+      <th>ID</th><th>Usuario</th><th>Origen</th><th>Destino</th><th>Fecha</th><th>Asiento</th><th>Precio</th><th>Estado</th>
+    </tr></thead><tbody>` +
+    r.data.map(x => `<tr><td>${x.id}</td><td>${x.usuario}</td><td>${x.origen}</td><td>${x.destino}</td>
+      <td>${(x.fechaViaje || '').replace('T', ' ').slice(0, 16)}</td><td>${x.asiento}</td><td>${x.precio}</td><td>${badge(x.estado)}</td></tr>`).join('') +
+    '</tbody></table>';
+}
+
+// ==================== SUITE DE PRUEBAS AUTOMATICAS ====================
+async function ejecutarPruebas() {
+  const body = document.getElementById('testBody');
+  const table = document.getElementById('testTable');
+  const summary = document.getElementById('testSummary');
+  body.innerHTML = ''; table.style.display = 'table';
+  summary.textContent = 'Ejecutando pruebas...';
+  let n = 0, pass = 0;
+
+  function fila(nombre, esperado, obtenido, ok) {
+    n++; if (ok) pass++;
+    body.innerHTML += `<tr><td>${n}</td><td>${nombre}</td><td>${esperado}</td><td>${obtenido}</td>
+      <td class="${ok ? 't-pass' : 't-fail'}">${ok ? 'PASS' : 'FAIL'}</td></tr>`;
+  }
+
+  const suf = Date.now().toString().slice(-6);
+  const uUser = 'qa-user-' + suf, uAdmin = 'qa-admin-' + suf;
+  const fechaFutura = new Date(Date.now() + 48 * 3600 * 1000).toISOString().slice(0, 19);
+  const reserva = { origen: 'Lima', destino: 'Cusco', fechaViaje: fechaFutura, asiento: '7B', precio: 120.00 };
+
+  try {
+    // --- Registro ---
+    let r = await api('POST', '/dev/usuarios', { usuario: uUser, password: 'clave123', roles: ['USER'] }, null);
+    fila('Registrar usuario USER', 'HTTP 201', 'HTTP ' + r.status, r.status === 201);
+
+    r = await api('POST', '/dev/usuarios', { usuario: uAdmin, password: 'clave123', roles: ['ADMIN'] }, null);
+    fila('Registrar usuario ADMIN', 'HTTP 201', 'HTTP ' + r.status, r.status === 201);
+
+    r = await api('POST', '/dev/usuarios', { usuario: uUser, password: 'otra456', roles: ['USER'] }, null);
+    fila('Registro duplicado es rechazado', 'HTTP 409', 'HTTP ' + r.status, r.status === 409);
+
+    r = await api('POST', '/dev/usuarios', { usuario: 'x-' + suf, password: '12' }, null);
+    fila('Registro con password corta es rechazado', 'HTTP 400', 'HTTP ' + r.status, r.status === 400);
+
+    // --- Login ---
+    r = await api('POST', '/dev/login', { usuario: uUser, password: 'INCORRECTA' }, null);
+    fila('Login con contraseña incorrecta', 'HTTP 401', 'HTTP ' + r.status, r.status === 401);
+
+    const lUser = await loginConCredenciales(uUser, 'clave123');
+    const tUser = lUser.access_token;
+    fila('Login USER devuelve JWT', 'token con roles [USER]', lUser.roles.join(','), !!tUser && lUser.roles.includes('USER'));
+
+    const lAdmin = await loginConCredenciales(uAdmin, 'clave123');
+    const tAdmin = lAdmin.access_token;
+    fila('Login ADMIN devuelve JWT', 'token con roles [ADMIN]', lAdmin.roles.join(','), !!tAdmin && lAdmin.roles.includes('ADMIN'));
+
+    // --- Seguridad de la API ---
+    r = await api('GET', '/api/reservas', null, null);
+    fila('GET sin token es rechazado', 'HTTP 401', 'HTTP ' + r.status, r.status === 401);
+
+    r = await api('GET', '/api/reservas', null, 'token-falso.invalido.xyz');
+    fila('GET con token falsificado es rechazado', 'HTTP 401', 'HTTP ' + r.status, r.status === 401);
+
+    r = await api('POST', '/api/reservas', { origen: '', destino: '', asiento: '', precio: -5 }, tUser);
+    fila('POST con datos inválidos (Bean Validation)', 'HTTP 400', 'HTTP ' + r.status, r.status === 400);
+
+    // --- CRUD ---
+    r = await api('POST', '/api/reservas', reserva, tUser);
+    const creada = r.data;
+    fila('USER crea reserva', 'HTTP 201', 'HTTP ' + r.status, r.status === 201);
+
+    fila('Propietario tomado del JWT (no del body)', 'usuario=' + uUser,
+        'usuario=' + (creada && creada.usuario), creada && creada.usuario === uUser);
+
+    const estadoOk = creada && (creada.estado === 'CONFIRMADA' || creada.estado === 'PENDIENTE');
+    fila('Integración ms-pagos: CONFIRMADA si responde, PENDIENTE si no (CB)', 'CONFIRMADA o PENDIENTE',
+        creada ? creada.estado : 'sin datos', estadoOk);
+
+    const id = creada ? creada.id : null;
+    r = await api('DELETE', '/api/reservas/' + id, null, tUser);
+    fila('USER no puede eliminar (solo ADMIN)', 'HTTP 403', 'HTTP ' + r.status, r.status === 403);
+
+    r = await api('PUT', `/api/reservas/${id}/confirmar`, null, tAdmin);
+    fila('ADMIN confirma la reserva', 'HTTP 200 + CONFIRMADA',
+        'HTTP ' + r.status + ' + ' + (r.data && r.data.estado),
+        r.status === 200 && r.data && r.data.estado === 'CONFIRMADA');
+
+    r = await api('DELETE', '/api/reservas/' + id, null, tAdmin);
+    fila('ADMIN elimina la reserva', 'HTTP 204', 'HTTP ' + r.status, r.status === 204);
+
+    // Limpieza de usuarios de prueba
+    await api('DELETE', '/dev/usuarios/' + uUser, null, null);
+    await api('DELETE', '/dev/usuarios/' + uAdmin, null, null);
+  } catch (e) {
+    fila('Ejecución de la suite', 'sin excepciones', e.message, false);
+  }
+
+  summary.innerHTML = pass === n
+    ? `<span class="t-pass">✔ ${pass}/${n} pruebas superadas</span>`
+    : `<span class="t-fail">✖ ${pass}/${n} pruebas superadas</span>`;
+  listarUsuarios();
+  listarReservas();
+}
+
+// Carga inicial
+listarUsuarios();
+</script>
+</body>
+</html>

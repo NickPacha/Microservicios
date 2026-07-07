@@ -1,0 +1,106 @@
+# =====================================================================
+# ms-reserva | Configuracion local minima.
+# En un entorno real, la mayoria de estas propiedades se centralizan
+# en el Config Server (ms-lib-config-server) y aqui solo queda el
+# bootstrap: nombre del servicio e import del config server.
+# =====================================================================
+server:
+  port: 8083
+  # TLS en transito (cifrado punto a punto detras del gateway).
+  # Descomentar y montar el keystore en despliegue:
+  # ssl:
+  #   enabled: true
+  #   key-store: classpath:keystore/ms-reserva.p12
+  #   key-store-type: PKCS12
+  #   key-store-password: ${SSL_KEYSTORE_PASSWORD}
+
+spring:
+  application:
+    name: ms-reserva
+
+  # ---------- Spring Cloud Config Server ----------
+  config:
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+  cloud:
+    config:
+      fail-fast: false
+
+  # ---------- PostgreSQL (persistencia independiente del MS) ----------
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:reserva_db}
+    username: ${DB_USER:reserva_user}
+    password: ${DB_PASSWORD:reserva_pass}   # inyectar por secreto/vault, nunca hardcodear
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      # MANDATORIO en produccion: el esquema lo gestiona Flyway, no Hibernate
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  # ---------- Seguridad: validacion del JWT (Resource Server) ----------
+  # "Confiar pero verificar": aunque el gateway ya valido el token,
+  # este MS verifica firma (JWK Set) e issuer (iss) de nuevo.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:9000/realms/transporte}
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:9000/realms/transporte/protocol/openid-connect/certs}
+
+# ---------- Eureka (ms-lib-registry-server) ----------
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.uuid}
+
+# ---------- Resilience4j: Circuit Breaker hacia ms-pagos ----------
+resilience4j:
+  circuitbreaker:
+    instances:
+      pagosCB:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+  timelimiter:
+    instances:
+      pagosCB:
+        timeoutDuration: 3s
+
+# ---------- Observabilidad ----------
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus, circuitbreakers
+  endpoint:
+    health:
+      show-details: when_authorized
+  tracing:
+    sampling:
+      probability: 1.0   # bajar en produccion (ej. 0.1)
+
+logging:
+  level:
+    com.sistema.transporte.reserva: INFO
+    org.springframework.security: INFO

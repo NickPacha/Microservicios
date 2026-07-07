@@ -1,0 +1,304 @@
+{
+  "info": {
+    "name": "Sistema Transporte - Microservicios",
+    "description": "Colección para probar los microservicios del sistema de transporte en modo LOCAL (perfil `local`).\n\n**Flujo recomendado:**\n1. `01 Autenticación → Register` para crear usuarios (o usa los de semilla).\n2. `01 Autenticación → Login USER` y `Login ADMIN`: guardan automáticamente los tokens en las variables `{{token_user}}` y `{{token_admin}}`.\n3. Prueba las carpetas de reservas: cada request ya lleva el Bearer token correcto.\n\n**Usuarios semilla:** fernando/fernando123 [USER] · admin/admin123 [ADMIN]\n\nLos tokens expiran en 1 hora: vuelve a ejecutar los logins si recibes 401.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8083", "description": "ms-reserva (perfil local)" },
+    { "key": "base_url_pagos", "value": "http://localhost:8084", "description": "ms-pagos (ajustar si usa otro puerto)" },
+    { "key": "base_url_gateway", "value": "http://localhost:8080", "description": "API Gateway (entorno completo)" },
+    { "key": "token_user", "value": "" },
+    { "key": "token_admin", "value": "" },
+    { "key": "reserva_id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "01 Autenticación (perfil local)",
+      "description": "Registro y login de usuarios de desarrollo. Solo existe con el perfil `local`; en producción la identidad la gestiona Keycloak.",
+      "item": [
+        {
+          "name": "Register - crear usuario USER",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/dev/usuarios", "host": ["{{base_url}}"], "path": ["dev", "usuarios"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"maria\",\n  \"password\": \"clave123\",\n  \"roles\": [\"USER\"]\n}"
+            },
+            "description": "201 = creado · 409 = ya existe · 400 = datos inválidos (password mínimo 4)"
+          }
+        },
+        {
+          "name": "Register - crear usuario ADMIN",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/dev/usuarios", "host": ["{{base_url}}"], "path": ["dev", "usuarios"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"supervisor\",\n  \"password\": \"clave123\",\n  \"roles\": [\"ADMIN\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Login USER (guarda token_user)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('token_user', data.access_token);",
+                  "    console.log('token_user guardado para:', data.usuario, data.roles);",
+                  "}",
+                  "pm.test('Login exitoso (200)', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/dev/login", "host": ["{{base_url}}"], "path": ["dev", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"fernando\",\n  \"password\": \"fernando123\"\n}"
+            },
+            "description": "Guarda el JWT en {{token_user}} automáticamente."
+          }
+        },
+        {
+          "name": "Login ADMIN (guarda token_admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json();",
+                  "    pm.collectionVariables.set('token_admin', data.access_token);",
+                  "    console.log('token_admin guardado para:', data.usuario, data.roles);",
+                  "}",
+                  "pm.test('Login exitoso (200)', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/dev/login", "host": ["{{base_url}}"], "path": ["dev", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login incorrecto (debe dar 401)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/dev/login", "host": ["{{base_url}}"], "path": ["dev", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"fernando\",\n  \"password\": \"contraseña-mala\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar usuarios registrados",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/dev/usuarios", "host": ["{{base_url}}"], "path": ["dev", "usuarios"] }
+          }
+        },
+        {
+          "name": "Eliminar usuario",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/dev/usuarios/maria", "host": ["{{base_url}}"], "path": ["dev", "usuarios", "maria"] },
+            "description": "204 = eliminado · 404 = no existe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 ms-reserva - Reservas",
+      "description": "CRUD de reservas. Requiere JWT: ejecuta antes los logins de la carpeta 01.",
+      "item": [
+        {
+          "name": "Listar reservas (USER: solo las suyas)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_user}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/api/reservas", "host": ["{{base_url}}"], "path": ["api", "reservas"] }
+          }
+        },
+        {
+          "name": "Listar reservas (ADMIN: todas)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/api/reservas", "host": ["{{base_url}}"], "path": ["api", "reservas"] }
+          }
+        },
+        {
+          "name": "Crear reserva (guarda reserva_id)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = new Date(Date.now() + 48 * 3600 * 1000);",
+                  "pm.variables.set('fecha_futura', d.toISOString().slice(0, 19));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('reserva_id', pm.response.json().id);",
+                  "}",
+                  "pm.test('Creada (201)', () => pm.response.to.have.status(201));",
+                  "pm.test('Propietario tomado del JWT', () => {",
+                  "    pm.expect(pm.response.json().usuario).to.not.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_user}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/reservas", "host": ["{{base_url}}"], "path": ["api", "reservas"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origen\": \"Lima\",\n  \"destino\": \"Arequipa\",\n  \"fechaViaje\": \"{{fecha_futura}}\",\n  \"asiento\": \"12A\",\n  \"precio\": 85.50\n}"
+            },
+            "description": "La fecha futura se genera automáticamente. Sin ms-pagos activo, la reserva queda PENDIENTE (fallback del Circuit Breaker)."
+          }
+        },
+        {
+          "name": "Obtener reserva por ID",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_user}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/api/reservas/{{reserva_id}}", "host": ["{{base_url}}"], "path": ["api", "reservas", "{{reserva_id}}"] }
+          }
+        },
+        {
+          "name": "Crear reserva inválida (debe dar 400)",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_user}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/api/reservas", "host": ["{{base_url}}"], "path": ["api", "reservas"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"origen\": \"\",\n  \"destino\": \"\",\n  \"asiento\": \"\",\n  \"precio\": -5\n}"
+            },
+            "description": "Bean Validation: origen/destino/asiento obligatorios, precio > 0, fecha futura."
+          }
+        },
+        {
+          "name": "Confirmar reserva (solo ADMIN)",
+          "request": {
+            "method": "PUT",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/api/reservas/{{reserva_id}}/confirmar", "host": ["{{base_url}}"], "path": ["api", "reservas", "{{reserva_id}}", "confirmar"] }
+          }
+        },
+        {
+          "name": "Confirmar como USER (debe dar 403)",
+          "request": {
+            "method": "PUT",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_user}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/api/reservas/{{reserva_id}}/confirmar", "host": ["{{base_url}}"], "path": ["api", "reservas", "{{reserva_id}}", "confirmar"] },
+            "description": "RBAC: PUT/DELETE requieren rol ADMIN."
+          }
+        },
+        {
+          "name": "Eliminar reserva (solo ADMIN)",
+          "request": {
+            "method": "DELETE",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }] },
+            "url": { "raw": "{{base_url}}/api/reservas/{{reserva_id}}", "host": ["{{base_url}}"], "path": ["api", "reservas", "{{reserva_id}}"] }
+          }
+        },
+        {
+          "name": "Listar sin token (debe dar 401)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": { "raw": "{{base_url}}/api/reservas", "host": ["{{base_url}}"], "path": ["api", "reservas"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 ms-pagos",
+      "description": "Contrato consumido por ms-reserva vía OpenFeign (nombre lógico `ms-pagos` en Eureka). Ajusta {{base_url_pagos}} al puerto real de tu ms-pagos. Si no está corriendo, ms-reserva degrada la reserva a PENDIENTE (Circuit Breaker).",
+      "item": [
+        {
+          "name": "Procesar pago",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_user}}", "type": "string" }] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url_pagos}}/api/pagos/procesar", "host": ["{{base_url_pagos}}"], "path": ["api", "pagos", "procesar"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservaId\": 1,\n  \"usuario\": \"fernando\",\n  \"monto\": 85.50\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Infraestructura",
+      "item": [
+        {
+          "name": "Health check ms-reserva",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/actuator/health", "host": ["{{base_url}}"], "path": ["actuator", "health"] }
+          }
+        },
+        {
+          "name": "Circuit breakers (estado)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/actuator/circuitbreakers", "host": ["{{base_url}}"], "path": ["actuator", "circuitbreakers"] }
+          }
+        },
+        {
+          "name": "OpenAPI spec (JSON)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/v3/api-docs", "host": ["{{base_url}}"], "path": ["v3", "api-docs"] }
+          }
+        },
+        {
+          "name": "Vía API Gateway (entorno completo)",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token_user}}", "type": "string" }] },
+            "url": { "raw": "{{base_url_gateway}}/api/reservas", "host": ["{{base_url_gateway}}"], "path": ["api", "reservas"] },
+            "description": "Solo aplica cuando corres el ecosistema completo (gateway + Eureka + Keycloak). En ese caso el token debe venir de Keycloak, no de /dev/login."
+          }
+        }
+      ]
+    }
+  ]
+}
