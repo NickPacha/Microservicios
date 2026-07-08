@@ -1,6 +1,7 @@
 package com.sistema.transporte.pagos.controller;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -26,28 +27,37 @@ class PagoControllerTest {
 
     @Test
     void procesaElPagoYEsIdempotente() throws Exception {
-        // Primer cobro
-        mvc.perform(post("/api/pagos/procesar")
+        // Primer cobro (con JWT valido simulado: ms-pagos ahora exige autenticacion)
+        mvc.perform(post("/api/pagos/procesar").with(jwt())
                         .contentType(MediaType.APPLICATION_JSON).content(PAGO))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("PAGADO"))
                 .andExpect(jsonPath("$.reservaId").value(10));
 
         // Reintento con la misma reserva: NO debe duplicar el cobro
-        mvc.perform(post("/api/pagos/procesar")
+        mvc.perform(post("/api/pagos/procesar").with(jwt())
                         .contentType(MediaType.APPLICATION_JSON).content(PAGO))
                 .andExpect(status().isOk());
 
-        mvc.perform(get("/api/pagos"))
+        mvc.perform(get("/api/pagos").with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.reservaId == 10)]", hasSize(1)));
     }
 
     @Test
     void rechazaPagoInvalido() throws Exception {
-        mvc.perform(post("/api/pagos/procesar")
+        mvc.perform(post("/api/pagos/procesar").with(jwt())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"usuario\": \"\", \"monto\": -5}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rechazaPagoSinToken() throws Exception {
+        // Sin JWT la peticion muere en el filtro de seguridad (401): ya no se
+        // pueden inyectar pagos anonimos como antes.
+        mvc.perform(post("/api/pagos/procesar")
+                        .contentType(MediaType.APPLICATION_JSON).content(PAGO))
+                .andExpect(status().isUnauthorized());
     }
 }

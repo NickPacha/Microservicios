@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -85,9 +87,26 @@ public class DevAuthController {
         }
         List<String> roles = (req.getRoles() == null || req.getRoles().isEmpty())
                 ? List.of("USER") : req.getRoles().stream().map(String::toUpperCase).toList();
+
+        // Prevencion de escalada de privilegios: el registro publico NO permite
+        // auto-asignarse ADMIN. Crear un administrador exige una sesion ADMIN
+        // valida (un admin existente da de alta a otro). El USER queda abierto.
+        if (roles.contains("ADMIN") && !solicitanteEsAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "Crear un usuario ADMIN requiere una sesion de administrador"));
+        }
+
         registrarInterno(username, req.getPassword(), roles);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(Map.of("usuario", username, "roles", roles));
+    }
+
+    /** true si la peticion trae un JWT valido con rol ADMIN en el contexto. */
+    private boolean solicitanteEsAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.isAuthenticated()
+                && auth.getAuthorities().stream()
+                        .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 
     /** Listar usuarios registrados (sin contrasenas). */

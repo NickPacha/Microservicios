@@ -5,6 +5,27 @@ spring:
   application:
     name: ms-pagos
 
+  # ---------- Persistencia de pagos (idempotencia durable) ----------
+  # H2 en fichero: los pagos SOBREVIVEN a los reinicios del servicio, de modo
+  # que la idempotencia (UNIQUE reserva_id) no se pierde. En produccion se
+  # sustituiria por PostgreSQL, sin tocar el codigo.
+  datasource:
+    url: jdbc:h2:file:./data/pagos_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+# ---------- Seguridad: clave DEV compartida para validar el JWT ----------
+# La misma clave que usan el gateway y ms-reserva. En produccion: issuer-uri
+# / jwk-set-uri de Keycloak en lugar de clave simetrica.
+app:
+  security:
+    dev-secret: ${DEV_SECRET:clave-secreta-de-desarrollo-para-ms-reserva-256bits!!}
+
 management:
   endpoints:
     web:

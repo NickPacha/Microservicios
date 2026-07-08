@@ -63,8 +63,9 @@
     <label>Rol</label>
     <select id="regRol">
       <option value="USER">USER (pasajero)</option>
-      <option value="ADMIN">ADMIN (administrador)</option>
+      <option value="ADMIN">ADMIN (requiere sesi&oacute;n admin)</option>
     </select>
+    <p class="hint">Crear un <b>ADMIN</b> solo es posible con una sesi&oacute;n de administrador activa (evita la escalada de privilegios). El registro de <b>USER</b> es abierto.</p>
     <button onclick="registrarUsuario()">Registrar usuario</button>
     <button class="secondary" onclick="listarUsuarios()">Refrescar lista</button>
     <div id="usuariosWrap"></div>
@@ -177,12 +178,18 @@ function sesionExpirada() {
 
 // ==================== USUARIOS ====================
 async function registrarUsuario() {
+  // Nota: crear un ADMIN exige una sesion ADMIN activa; el token actual
+  // (si lo hay) se envia automaticamente. El registro de USER es abierto.
+  const rol = document.getElementById('regRol').value;
   const r = await api('POST', '/dev/usuarios', {
     usuario: document.getElementById('regUsuario').value,
     password: document.getElementById('regPassword').value,
-    roles: [document.getElementById('regRol').value]
-  }, null);
-  show('regOut', { http: r.status, respuesta: r.data });
+    roles: [rol]
+  });
+  const msg = r.status === 403
+    ? { http: r.status, aviso: 'Crear un ADMIN requiere iniciar sesión como administrador (ej. admin/admin123).', respuesta: r.data }
+    : { http: r.status, respuesta: r.data };
+  show('regOut', msg);
   if (r.status === 201) listarUsuarios();
 }
 
@@ -333,8 +340,14 @@ async function ejecutarPruebas() {
     let r = await api('POST', '/dev/usuarios', { usuario: uUser, password: 'clave123', roles: ['USER'] }, null);
     fila('Registrar usuario USER', 'HTTP 201', 'HTTP ' + r.status, r.status === 201);
 
-    r = await api('POST', '/dev/usuarios', { usuario: uAdmin, password: 'clave123', roles: ['ADMIN'] }, null);
-    fila('Registrar usuario ADMIN', 'HTTP 201', 'HTTP ' + r.status, r.status === 201);
+    // Escalada de privilegios: auto-registrarse como ADMIN sin sesión admin debe fallar
+    r = await api('POST', '/dev/usuarios', { usuario: 'esc-' + suf, password: 'clave123', roles: ['ADMIN'] }, null);
+    fila('Auto-registro como ADMIN sin sesión admin es rechazado', 'HTTP 403', 'HTTP ' + r.status, r.status === 403);
+
+    // El ADMIN de prueba se crea CON una sesión admin (usuario semilla admin/admin123)
+    const seedAdmin = await loginConCredenciales('admin', 'admin123');
+    r = await api('POST', '/dev/usuarios', { usuario: uAdmin, password: 'clave123', roles: ['ADMIN'] }, seedAdmin.access_token);
+    fila('Registrar ADMIN con sesión admin', 'HTTP 201', 'HTTP ' + r.status, r.status === 201);
 
     r = await api('POST', '/dev/usuarios', { usuario: uUser, password: 'otra456', roles: ['USER'] }, null);
     fila('Registro duplicado es rechazado', 'HTTP 409', 'HTTP ' + r.status, r.status === 409);

@@ -34,6 +34,34 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!-- ==================== SEGURIDAD (JWT / Resource Server) ==================== -->
+        <!-- Antes ms-pagos estaba SIN autenticacion: cualquiera con acceso al
+             puerto 8084 podia registrar pagos arbitrarios. Ahora valida el mismo
+             JWT que emite el sistema (defensa en profundidad, igual que ms-reserva). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
+        <!-- ==================== PERSISTENCIA (idempotencia durable) ==================== -->
+        <!-- Los pagos ya no viven solo en memoria: se guardan con una restriccion
+             UNIQUE(reserva_id), de modo que una reserva se cobra UNA sola vez incluso
+             tras un reinicio o ante llamadas concurrentes. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -42,6 +70,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

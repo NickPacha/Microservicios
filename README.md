@@ -24,7 +24,7 @@ Doble clic en **`arrancar.bat`** (o desde terminal). Abre dos ventanas, una por 
 |---|---|
 | http://localhost:8083/ | Portal: registro de usuarios, login, reservas y suite de pruebas |
 | http://localhost:8083/swagger-ui.html | Swagger UI de ms-reserva |
-| http://localhost:8084/api/pagos | Pagos procesados por ms-pagos |
+| http://localhost:8084/api/pagos | Pagos procesados por ms-pagos (ahora exige JWT: usa Swagger/Postman con token, o el portal) |
 | http://localhost:8080/api/reservas | Lo mismo pero entrando por el API Gateway (valida el JWT en el perímetro) |
 
 Usuarios semilla: `fernando/fernando123` [USER] · `admin/admin123` [ADMIN]
@@ -51,6 +51,8 @@ cd ms-reserva && mvnw clean install    # o desde la raíz con Maven instalado: m
 
 - **ms-pagos corriendo** → pago procesado → reserva `CONFIRMADA`
 - **ms-pagos apagado** → circuit breaker (Resilience4j) → reserva `PENDIENTE` (la petición no falla)
+
+`ms-pagos` es un **Resource Server**: valida el JWT igual que `ms-reserva`, y `ms-reserva` reenvía el token del usuario en su llamada Feign (identidad extremo a extremo). Los pagos se persisten con `UNIQUE(reserva_id)`, de modo que la **idempotencia sobrevive a reinicios**.
 
 En el perfil `local`, Feign resuelve `ms-pagos` → `localhost:8084` por registro estático (sin Eureka). En producción la resolución la hace Eureka y la identidad Keycloak.
 
